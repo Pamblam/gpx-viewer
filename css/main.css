@@ -1,0 +1,128 @@
+html, body{
+	font-family: Verdana, sans-serif;
+	overflow: hidden;
+}
+
+html,
+body,
+#main_map {
+	height: 100vh;
+	width: 100vw;
+	margin: 0px;
+	padding: 0px
+}
+
+#controls_div{
+	width: 300px;
+	height: 500px;
+	position: absolute;
+	bottom: 10px;
+	left: 10px;
+	background-color: #EFF9F0;
+	margin: 0;
+	padding: 0;
+	border: 1px solid #54428E;
+	border-radius: 1em;
+}
+
+#controls_div .header{
+	margin: 0;
+	padding: 3px 5px;
+	border: 1px solid #54428E;
+	background: #54428E;
+	border-radius: 1em 1em 0 0;
+	color: #EFF9F0;
+	cursor: pointer;
+}
+
+#controls_div .header h3{
+	margin: 0; 
+	padding: 0;
+	float: left;
+}
+
+#controls_div .header span{
+	float: right;
+	-moz-transition: all .5s linear;
+    -webkit-transition: all .5s linear;
+    transition: all .5s linear;
+}
+
+#controls_div .header span.alt{
+	-moz-transform:rotate(180deg);
+    -webkit-transform:rotate(180deg);
+    transform:rotate(180deg);
+}
+
+.clearfix{
+	clear: both;
+}
+
+#file_drop{
+	padding: 8px;
+	margin: 3px;
+	border: 1px dashed #54428E;
+	text-align: center;
+	font-size: .8em;
+	color: #777;
+	cursor: pointer;
+}
+
+.ddupload-hover{
+	border: 1px solid #54428E !important;
+}
+
+#files_list{
+	margin: 3px;
+	font-size: .8em;
+	height: 395px;
+	overflow: auto;
+}
+
+.file-item{
+	padding: 8px;
+	margin: 0 0 1px 0;
+	background: #DDC8C4;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.no-files{
+	color: #777;
+	text-align: center;
+}
+
+#control-buttons{
+	padding: 2px;
+	margin: 0;
+	text-align: center;
+	font-size: .8em;
+}
+
+#control-buttons button{
+	margin: 0;
+	padding: 4px;
+	border: 1px solid #54428E;
+	background: #54428E;
+	color: #EFF9F0;
+	cursor: pointer;
+}
+
+#play-btn{
+	border-radius: .5em .5em .5em 1em;
+	width: 202px;
+}
+
+#settings-btn{
+	border-radius: .5em .5em 1em .5em;
+	width: 85px;
+}
+
+.remove-file{
+	color: #D7263D;
+}
+
+.move-file{
+	cursor: grab;
+}
