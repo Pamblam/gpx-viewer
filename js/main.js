@@ -1,6 +1,6 @@
 (async function main(){
 	
-	const SPEED_MULTIPLIER = 16;
+	const SPEED_MULTIPLIER = 300;
 	
 	const MAP_DIV = document.querySelector("#main_map");
 	const MAIN_MAP = await createMap(MAP_DIV);

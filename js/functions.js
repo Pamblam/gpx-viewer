@@ -150,7 +150,16 @@ function renderFilesList({files, removeFile, rearrangeFiles}){
 	});
 }
 
-function initPlayBtn({getFiles, map, speed_multiplier}){
+function playAnimation({paths, map, speed_multiplier}){
+	return new Promise(async done => {
+		for(var i=0; i<paths.length; i++){
+			await renderPath({index: i, path: paths[i], map, speed_multiplier});
+		}
+		done();
+	});
+}
+
+function renderPath({index, path, map, speed_multiplier}){
 	return new Promise(done => {
 		require([
 			"esri/map",
@@ -177,31 +186,29 @@ function initPlayBtn({getFiles, map, speed_multiplier}){
 			"dojox/charting/Chart",
 			"dojo/domReady!"
 		], function (Map, Graphic, SimpleFillSymbol, SimpleMarkerSymbol, SimpleLineSymbol, TextSymbol, Font, Circle, Polygon, Point, SpatialReference, webMercatorUtils, GraphicsLayer, script, array, all, Deferred, dom, on, JSON, PictureMarkerSymbol, CartographicLineSymbol, Polyline, Color, domConstruct, Chart) {
+			(async function(e){
 				
-			const PLAY_BTN = document.querySelector('#play-btn');
-			PLAY_BTN.addEventListener('click', async function(e){
-				e.preventDefault();
-				await closeControls();
-				var files = getFiles();
-				var points = await parseFiles(files);
+				console.log(speed_multiplier);
 				
-				var gl = new GraphicsLayer({id: "runningtrack"});
+				var segmenter = getTimelapseSegmenter(path, speed_multiplier);
+				segmenter.startTime();
+				
+				var gl = new GraphicsLayer({id: "runningtrack"+index});
 				map.addLayer(gl);
 
 				var lineSymbol = new CartographicLineSymbol(
 						CartographicLineSymbol.STYLE_SOLID, 
 						new Color([255,0,0]), 
-						10, 
+						3, 
 						CartographicLineSymbol.CAP_ROUND, 
 						CartographicLineSymbol.JOIN_MITER, 
 						5
 				);
 
 				var lineGeometry = new Polyline(new SpatialReference({wkid:4326}));
-				lineGeometry.addPath([
-					[points[0].lng, points[0].lat],
-					[points[1].lng, points[1].lat]
-				]);
+				
+				var segment = await segmenter.getNextSegment();
+				lineGeometry.addPath(segment.map(point=>[point.lng, point.lat]));
 
 				var lineGraphic = new Graphic(lineGeometry, lineSymbol);
 				gl.add(lineGraphic)
@@ -209,9 +216,10 @@ function initPlayBtn({getFiles, map, speed_multiplier}){
 				map.setExtent(lineGeometry.getExtent());
 					
 					
-				for(var i=2; i<points.length; i++){
-
-					//await new Promise(d=>setTimeout(d, 100));
+				while(true){
+					
+					segment = await segmenter.getNextSegment();
+					if(segment === false) break;
 
 					await new Promise(continue_loop=>{
 
@@ -220,33 +228,43 @@ function initPlayBtn({getFiles, map, speed_multiplier}){
 							continue_loop();
 						});
 
-						let point = [points[i].lng, points[i].lat];
-
-						let pos = new Point({
-							x: point[0], 
-							y: point[1], 
-							spatialReference: {wkid:4326} 
-						});
-
-						lineGeometry.insertPoint(0, i, pos);
+						for(var i=0; i<segment.length; i++){
+							let pos = new Point({
+								x: segment[i].lng, 
+								y: segment[i].lat, 
+								spatialReference: {wkid:4326} 
+							});
+							lineGeometry.insertPoint(0, i, pos);
+						}
+							
 						gl.redraw();
-
 						map.setExtent(lineGeometry.getExtent().expand(3));
-
 					});
 
 				}
 				
-			});
-			
+				done();
+			})();
 		});
 	});
 }
 
+function initPlayBtn({getFiles, map, speed_multiplier}){
+	const PLAY_BTN = document.querySelector('#play-btn');
+	PLAY_BTN.addEventListener('click', async function(e){
+		e.preventDefault();
+		await closeControls();
+		var files = getFiles();
+		var paths = await parseFiles(files);
+		playAnimation({paths, map, speed_multiplier});
+	});
+}
+
 async function parseFiles(files){
-	var trackpoints = [];
+	var paths = [];
 	let filesText = await Promise.all(files.map(FI.get_file_text));
 	for(var i=0; i<filesText.length; i++){
+		let trackpoints = [];
 		let gpx = (new DOMParser()).parseFromString(filesText[i], 'text/xml');
 		let trkpts = gpx.getElementsByTagName("trkpt");
 		for (var ii=0; ii<trkpts.length; ii++) {
@@ -256,6 +274,78 @@ async function parseFiles(files){
 			let time = new Date(trkpts[ii].getElementsByTagName("time")[0].textContent);
 			trackpoints.push({lat, lng, ele, time});
 		}
+		paths.push(trackpoints);
 	}
-	return trackpoints;
+	return paths;
+}
+
+function getTimelapseSegmenter(points, speed_multiplier){
+
+	var next_starting_index = 0;
+	var current_real_time = null;
+	var current_playback_time = null;
+
+	var started = false;
+
+	const startTime = () => {
+		if(started) return;
+		started = true;
+		current_real_time = new Date();
+		current_playback_time = new Date(points[0].time);
+	};
+
+	// must return a minimum of 2 points
+	const getNextSegment = ()=>{
+		return new Promise(done=>{
+			
+			if(!started) startTime();
+			
+			// the -1 is to ensure that there is at least 2 points left to return
+			if(next_starting_index >= points.length-1) return done(false); 
+
+			let now = new Date();
+			let real_elapsed_time = now.getTime() - current_real_time.getTime();
+			let playback_elapsed_time = real_elapsed_time * speed_multiplier;
+			current_playback_time.setTime(current_playback_time.getTime()+playback_elapsed_time);
+			current_real_time = now;
+
+			var segment = [];
+			for(var i=next_starting_index; i<points.length; i++){
+				let point_time = new Date(points[i].time);
+				if(point_time.getTime() <= current_playback_time.getTime()){
+					segment.push(points[i]);
+					next_starting_index++;
+				}else{
+					break;
+				}
+			}
+			
+			// if there's only one left OR if there's only one in the current segment
+			if(points.length === next_starting_index + 1 || segment.length === 1){
+				let next_point_time = new Date(points[next_starting_index].time);
+				let playback_time_to_next_point = next_point_time.getTime() - current_playback_time.getTime();
+				let real_time_to_next_point = playback_time_to_next_point / speed_multiplier;
+				
+				setTimeout(()=>{
+					current_real_time.setTime(current_real_time.getTime()+real_time_to_next_point);
+					current_playback_time.setTime(current_playback_time.getTime()+playback_time_to_next_point);
+					segment.push(points[next_starting_index]);
+					next_starting_index++;
+					done(segment);
+				}, real_time_to_next_point);
+			}else{
+				done(segment);
+			}
+			
+			
+			
+		});
+	};
+
+
+	return {
+		getNextSegment,
+		startTime,
+		getPlaybackTime: ()=>current_playback_time,
+	};
 }
