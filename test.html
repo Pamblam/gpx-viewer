@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>GPX Viewer</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no" />
+		<link rel="stylesheet" href="https://js.arcgis.com/3.41/esri/css/esri.css">
+		<style>
+			html,
+			body,
+			#main_map {
+				height: 100vh;
+				width: 100vw;
+				margin: 0px;
+				padding: 0px
+			}
+		</style>
+	</head>
+	<body>
+		
+		<div id="main_map"></div>
+		
+		<script src="https://js.arcgis.com/3.41/"></script>
+		<script>
+			
+			var paths = [[[-82.705727,28.068855],[-82.705728,28.068855],[-82.70572,28.068903],[-82.705707,28.068957],[-82.705694,28.069006],[-82.705681,28.069053],[-82.705676,28.069121],[-82.705658,28.069242],[-82.705628,28.06931],[-82.705597,28.069351],[-82.705561,28.069394],[-82.705488,28.06952],[-82.705477,28.069541],[-82.705439,28.069684],[-82.705431,28.06973],[-82.705403,28.069865],[-82.705392,28.069953],[-82.705386,28.069977],[-82.705359,28.070116],[-82.705341,28.070186],[-82.705305,28.070328],[-82.705294,28.070379],[-82.705253,28.070519],[-82.705239,28.070589],[-82.705216,28.070723],[-82.705207,28.070785],[-82.705165,28.070913],[-82.70514,28.070975],[-82.705089,28.071103],[-82.70506,28.071189],[-82.705003,28.07132],[-82.704982,28.071362],[-82.70491,28.071483],[-82.704881,28.071528],[-82.704812,28.071662],[-82.704795,28.07171],[-82.704766,28.071842],[-82.704749,28.071909],[-82.704713,28.072026],[-82.704678,28.072158],[-82.704637,28.072292],[-82.704627,28.072362],[-82.704599,28.072499],[-82.704579,28.072585],[-82.704557,28.072725],[-82.70455,28.072774],[-82.704537,28.072903],[-82.704535,28.072922],[-82.704498,28.073061],[-82.704485,28.073127],[-82.704463,28.07326],[-82.704434,28.073381],[-82.704398,28.073522],[-82.704377,28.073595],[-82.70434,28.073741],[-82.704321,28.073815],[-82.704288,28.073964],[-82.704275,28.074011],[-82.704245,28.074157],[-82.70423,28.074233],[-82.704207,28.074377],[-82.704195,28.074446],[-82.704164,28.074597],[-82.704146,28.074698],[-82.704123,28.07485],[-82.704108,28.074923],[-82.704073,28.075066],[-82.70405,28.075192],[-82.704024,28.07533],[-82.704015,28.075387],[-82.703991,28.07553],[-82.703971,28.075628]]]
+			
+			require([
+				"dojo/_base/Color",
+				"esri/map",
+				"esri/layers/OpenStreetMapLayer",
+				"esri/geometry/Point", 
+				"esri/symbols/SimpleMarkerSymbol",
+				"esri/geometry/Polyline", 
+				"esri/symbols/SimpleLineSymbol",
+				"esri/geometry/webMercatorUtils", 
+				"esri/graphic", 
+				"esri/layers/GraphicsLayer", 
+				"esri/SpatialReference",
+				"dojo/dom", 
+				"dojo/dom-attr", 
+				"esri/geometry/Extent",
+				"dojo/domReady!"
+			], function (Color, Map, OpenStreetMapLayer, Point, SimpleMarkerSymbol, Polyline, SimpleLineSymbol, webMercatorUtils, Graphic, GraphicsLayer, SpatialReference, dom, domAttr, Extent) {
+				(async ()=>{
+					console.log("starting");
+
+					var map_div = document.getElementById('main_map');
+
+					var map, openStreetMapLayer;
+					map = new Map(map_div, {
+						center: [-82.452606, 27.964157],
+						zoom: 12
+					});
+
+					openStreetMapLayer = new OpenStreetMapLayer();
+					map.addLayer(openStreetMapLayer);
+
+					console.log("fart");
+
+
+					var spatial_reference = new SpatialReference({wkid: 4326});
+
+					var start = paths[0].shift();
+					var start_pos = new Point(start[0], start[1], spatial_reference);
+
+					var polyline_layer = new GraphicsLayer({id: "polyline"});
+					var polyLine = new esri.geometry.Polyline(spatial_reference);
+					var polyline_symbol = new SimpleLineSymbol();
+
+					polyline_layer.add(new esri.Graphic(polyLine, polyline_symbol));
+					map.graphics.add(polyline_layer);
+
+					polyLine.addPath([start_pos]);
+
+					map.on("update-end", function(){
+						console.log("updated");
+					});
+
+
+					for(var i=0; i<paths[0].length; i++){
+						console.log("extending");
+
+						let point = paths[0][i];
+						let pos = new Point(point[0], point[1], spatial_reference);
+
+						polyLine.insertPoint(0, i+1, pos);
+
+						console.log(polyLine.paths);
+
+						map.setExtent(polyLine.getExtent());
+
+						polyline_layer.redraw();
+
+						await new Promise(d=>setTimeout(d, 2500));
+					}
+				})();
+					
+
+			});
+			
+		</script>
+	</body>
+</html>

@@ -118,8 +118,6 @@ function initFileControls(onAdd){
 function renderFilesList({files, removeFile, rearrangeFiles}){
 	const FILE_LIST_DIV = document.querySelector("#files_list");
 	
-	// Clone the node to remove the event listeners on it
-	
 	var buffer = [];
 	if(!files.length){
 		buffer.push(`<div class='file-item no-files'>No files to show.</div>`);
@@ -139,7 +137,7 @@ function renderFilesList({files, removeFile, rearrangeFiles}){
 	}));
 	new EZDnD_Group({
 		element_selectors: '.file-file', 
-		anchor_selectors: '.move-file', 
+		anchor_selectors: '.file-file', 
 		container_selectors: '#files_list', 
 		placeholder: '<div>&rarr;</div>'
 	});
@@ -150,4 +148,91 @@ function renderFilesList({files, removeFile, rearrangeFiles}){
 			if(to !== from) rearrangeFiles(from, to);
 		});
 	});
+}
+
+function initPlayBtn({getFiles, map, speed_multiplier}){
+	return new Promise(done => {
+		require([
+			"dojo/_base/Color",
+			"esri/map",
+			"esri/geometry/Point", 
+			"esri/symbols/SimpleMarkerSymbol",
+			"esri/geometry/Polyline", 
+			"esri/symbols/SimpleLineSymbol",
+			"esri/geometry/webMercatorUtils", 
+			"esri/graphic", 
+			"esri/layers/GraphicsLayer", 
+			"esri/SpatialReference",
+			"dojo/dom", 
+			"dojo/dom-attr", 
+			"esri/geometry/Extent",
+			"dojo/domReady!"
+		], function (Color, Map, Point, SimpleMarkerSymbol, Polyline, SimpleLineSymbol, webMercatorUtils, Graphic, GraphicsLayer, SpatialReference, dom, domAttr, Extent) {
+			
+			const PLAY_BTN = document.querySelector('#play-btn');
+			PLAY_BTN.addEventListener('click', async function(e){
+				e.preventDefault();
+				await closeControls();
+				var files = getFiles();
+				var trpts = await parseFiles(files);
+				
+				var start = trpts.shift();
+				var last_date = start.time;
+				
+				var spatial_reference = new SpatialReference({wkid: 4326});
+				
+				var start_pos = new Point(start.lng, start.lat, spatial_reference);
+				
+				
+				var polyline_layer = new GraphicsLayer({id: "polyline"});
+				var polyLine = new esri.geometry.Polyline(spatial_reference);
+				var polyline_symbol = new SimpleLineSymbol();
+				
+				polyline_layer.add(new esri.Graphic(polyLine, polyline_symbol));
+				map.graphics.add(polyline_layer);
+				
+				polyLine.addPath([start_pos]);
+				
+				map.on("update-end", function(){
+					console.log("update");
+				});
+
+				
+				for(var i=0; i<trpts.length; i++){
+					console.log("extending");
+					
+					let point = trpts[i];
+					let pos = new Point(point.lng, point.lat, spatial_reference);
+					
+					polyLine.insertPoint(0, i+1, pos);
+							
+					console.log(polyLine.paths);
+							
+					map.setExtent(polyLine.getExtent());
+					
+					polyline_layer.redraw();
+					
+					await new Promise(d=>setTimeout(d, 2500));
+				}
+			});
+			
+		});
+	});
+}
+
+async function parseFiles(files){
+	var trackpoints = [];
+	let filesText = await Promise.all(files.map(FI.get_file_text));
+	for(var i=0; i<filesText.length; i++){
+		let gpx = (new DOMParser()).parseFromString(filesText[i], 'text/xml');
+		let trkpts = gpx.getElementsByTagName("trkpt");
+		for (var ii=0; ii<trkpts.length; ii++) {
+			let lat = parseFloat(trkpts[ii].getAttribute("lat"));
+			let lng = parseFloat(trkpts[ii].getAttribute("lon"));
+			let ele = parseFloat(trkpts[ii].getElementsByTagName("ele")[0].textContent);
+			let time = new Date(trkpts[ii].getElementsByTagName("time")[0].textContent);
+			trackpoints.push({lat, lng, ele, time});
+		}
+	}
+	return trackpoints;
 }

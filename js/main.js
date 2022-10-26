@@ -1,7 +1,10 @@
 (async function main(){
 	
+	const SPEED_MULTIPLIER = 16;
+	
 	const MAP_DIV = document.querySelector("#main_map");
 	const MAIN_MAP = await createMap(MAP_DIV);
+	
 	const GPX_FILES = [];
 	
 	const renderFiles = () => renderFilesList({
@@ -18,6 +21,14 @@
 	});
 	
 	initControlToggle();
+	
+	initPlayBtn({
+		getFiles(){
+			return GPX_FILES;
+		},
+		speed_multiplier: SPEED_MULTIPLIER,
+		map: MAIN_MAP
+	});
 	
 	renderFiles();
 	

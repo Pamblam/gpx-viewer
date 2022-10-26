@@ -36,15 +36,6 @@ class FI{
 		return this.files;
 	}
 	
-	get_file_text(file){
-		return new Promise((resolve, reject)=>{
-			var reader = new FileReader;
-			reader.onload = e=>resolve(e.target.result);
-			reader.onabort = ()=>reject('Aborted');
-			reader.readAsText(file);
-		});
-	}
-	
 	get_file_datauri(file){
 		return new Promise((resolve, reject)=>{
 			var reader = new FileReader;
@@ -212,6 +203,15 @@ class FI{
 }
 
 FI.version = '1.0.15';
+
+FI.get_file_text = file => {
+	return new Promise((resolve, reject)=>{
+		var reader = new FileReader;
+		reader.onload = e=>resolve(e.target.result);
+		reader.onabort = ()=>reject('Aborted');
+		reader.readAsText(file);
+	});
+};
 
 FI.addMimeType = function(ext, mimetypes){
 	ext = ext.toLowerCase().trim();
