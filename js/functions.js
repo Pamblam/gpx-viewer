@@ -232,7 +232,7 @@ function renderPath({index, path, map, speed_multiplier}){
 								y: segment[i].lat, 
 								spatialReference: {wkid:4326} 
 							});
-							lineGeometry.insertPoint(0, i, pos);
+							lineGeometry.insertPoint(0, lineGeometry.paths[0].length, pos);
 						}
 							
 						gl.redraw();
