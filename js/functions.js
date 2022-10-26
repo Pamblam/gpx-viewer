@@ -1,22 +1,22 @@
 
+
 function createMap(map_div) {
 	return new Promise(done => {
 		require([
 			"esri/map",
-			"esri/layers/OpenStreetMapLayer",
 			"dojo/domReady!"
-		], function (Map, OpenStreetMapLayer) {
-			var map, openStreetMapLayer;
-			map = new Map(map_div, {
-				center: [-82.452606, 27.964157],
-				zoom: 12
-			});
-			var updateListener = map.on("update-end", function (err) {
-				updateListener.remove();
-				done(map);
-			});
-			openStreetMapLayer = new OpenStreetMapLayer();
-			map.addLayer(openStreetMapLayer);
+		], function (Map) {
+			(async ()=>{
+				var map = new Map(map_div, {
+					center: [-82.452606, 27.964157],
+					zoom: 12,
+					basemap: "osm"
+				});
+				var updateListener = map.on("update-end", function (err) {
+					updateListener.remove();
+					done(map);
+				});
+			})();
 		});
 	});
 }
@@ -153,67 +153,90 @@ function renderFilesList({files, removeFile, rearrangeFiles}){
 function initPlayBtn({getFiles, map, speed_multiplier}){
 	return new Promise(done => {
 		require([
-			"dojo/_base/Color",
 			"esri/map",
-			"esri/geometry/Point", 
+			"esri/graphic",
+			"esri/symbols/SimpleFillSymbol",
 			"esri/symbols/SimpleMarkerSymbol",
-			"esri/geometry/Polyline", 
 			"esri/symbols/SimpleLineSymbol",
-			"esri/geometry/webMercatorUtils", 
-			"esri/graphic", 
-			"esri/layers/GraphicsLayer", 
+			"esri/symbols/TextSymbol",
+			"esri/symbols/Font",
+			"esri/geometry/Circle",
+			"esri/geometry/Polygon",
+			"esri/geometry/Point",
 			"esri/SpatialReference",
-			"dojo/dom", 
-			"dojo/dom-attr", 
-			"esri/geometry/Extent",
+			"esri/geometry/webMercatorUtils",
+			"esri/layers/GraphicsLayer",
+			"dojo/request/script",
+			"dojo/_base/array",
+			"dojo/promise/all", "dojo/Deferred", "dojo/dom", "dojo/on", "dojo/json",
+			"esri/symbols/PictureMarkerSymbol",
+			"esri/symbols/CartographicLineSymbol",
+			"esri/geometry/Polyline",
+			"esri/Color",
+			"dojo/dom-construct",
+			"dojox/charting/Chart",
 			"dojo/domReady!"
-		], function (Color, Map, Point, SimpleMarkerSymbol, Polyline, SimpleLineSymbol, webMercatorUtils, Graphic, GraphicsLayer, SpatialReference, dom, domAttr, Extent) {
-			
+		], function (Map, Graphic, SimpleFillSymbol, SimpleMarkerSymbol, SimpleLineSymbol, TextSymbol, Font, Circle, Polygon, Point, SpatialReference, webMercatorUtils, GraphicsLayer, script, array, all, Deferred, dom, on, JSON, PictureMarkerSymbol, CartographicLineSymbol, Polyline, Color, domConstruct, Chart) {
+				
 			const PLAY_BTN = document.querySelector('#play-btn');
 			PLAY_BTN.addEventListener('click', async function(e){
 				e.preventDefault();
 				await closeControls();
 				var files = getFiles();
-				var trpts = await parseFiles(files);
+				var points = await parseFiles(files);
 				
-				var start = trpts.shift();
-				var last_date = start.time;
-				
-				var spatial_reference = new SpatialReference({wkid: 4326});
-				
-				var start_pos = new Point(start.lng, start.lat, spatial_reference);
-				
-				
-				var polyline_layer = new GraphicsLayer({id: "polyline"});
-				var polyLine = new esri.geometry.Polyline(spatial_reference);
-				var polyline_symbol = new SimpleLineSymbol();
-				
-				polyline_layer.add(new esri.Graphic(polyLine, polyline_symbol));
-				map.graphics.add(polyline_layer);
-				
-				polyLine.addPath([start_pos]);
-				
-				map.on("update-end", function(){
-					console.log("update");
-				});
+				var gl = new GraphicsLayer({id: "runningtrack"});
+				map.addLayer(gl);
 
-				
-				for(var i=0; i<trpts.length; i++){
-					console.log("extending");
+				var lineSymbol = new CartographicLineSymbol(
+						CartographicLineSymbol.STYLE_SOLID, 
+						new Color([255,0,0]), 
+						10, 
+						CartographicLineSymbol.CAP_ROUND, 
+						CartographicLineSymbol.JOIN_MITER, 
+						5
+				);
+
+				var lineGeometry = new Polyline(new SpatialReference({wkid:4326}));
+				lineGeometry.addPath([
+					[points[0].lng, points[0].lat],
+					[points[1].lng, points[1].lat]
+				]);
+
+				var lineGraphic = new Graphic(lineGeometry, lineSymbol);
+				gl.add(lineGraphic)
+
+				map.setExtent(lineGeometry.getExtent());
 					
-					let point = trpts[i];
-					let pos = new Point(point.lng, point.lat, spatial_reference);
 					
-					polyLine.insertPoint(0, i+1, pos);
-							
-					console.log(polyLine.paths);
-							
-					map.setExtent(polyLine.getExtent());
-					
-					polyline_layer.redraw();
-					
-					await new Promise(d=>setTimeout(d, 2500));
+				for(var i=2; i<points.length; i++){
+
+					//await new Promise(d=>setTimeout(d, 100));
+
+					await new Promise(continue_loop=>{
+
+						var updateHandler = map.on("update-end", function(){
+							updateHandler.remove();
+							continue_loop();
+						});
+
+						let point = [points[i].lng, points[i].lat];
+
+						let pos = new Point({
+							x: point[0], 
+							y: point[1], 
+							spatialReference: {wkid:4326} 
+						});
+
+						lineGeometry.insertPoint(0, i, pos);
+						gl.redraw();
+
+						map.setExtent(lineGeometry.getExtent().expand(3));
+
+					});
+
 				}
+				
 			});
 			
 		});
