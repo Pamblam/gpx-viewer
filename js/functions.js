@@ -188,8 +188,6 @@ function renderPath({index, path, map, speed_multiplier}){
 		], function (Map, Graphic, SimpleFillSymbol, SimpleMarkerSymbol, SimpleLineSymbol, TextSymbol, Font, Circle, Polygon, Point, SpatialReference, webMercatorUtils, GraphicsLayer, script, array, all, Deferred, dom, on, JSON, PictureMarkerSymbol, CartographicLineSymbol, Polyline, Color, domConstruct, Chart) {
 			(async function(e){
 				
-				console.log(speed_multiplier);
-				
 				var segmenter = getTimelapseSegmenter(path, speed_multiplier);
 				segmenter.startTime();
 				
@@ -197,12 +195,12 @@ function renderPath({index, path, map, speed_multiplier}){
 				map.addLayer(gl);
 
 				var lineSymbol = new CartographicLineSymbol(
-						CartographicLineSymbol.STYLE_SOLID, 
-						new Color([255,0,0]), 
-						3, 
-						CartographicLineSymbol.CAP_ROUND, 
-						CartographicLineSymbol.JOIN_MITER, 
-						5
+					CartographicLineSymbol.STYLE_SOLID, 
+					new Color([255,0,0]), 
+					3, 
+					CartographicLineSymbol.CAP_ROUND, 
+					CartographicLineSymbol.JOIN_ROUND, 
+					5
 				);
 
 				var lineGeometry = new Polyline(new SpatialReference({wkid:4326}));
