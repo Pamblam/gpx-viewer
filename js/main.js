@@ -5,17 +5,22 @@
 	const MAP_DIV = document.querySelector("#main_map");
 	const MAIN_MAP = await createMap(MAP_DIV);
 	
-	const GPX_FILES = [];
+	const GPX_ROUTES = [];
 	
 	const renderFiles = () => renderFilesList({
-		files: GPX_FILES,
+		files: GPX_ROUTES,
 		removeFile: idx => {
-			GPX_FILES.splice(idx, 1);
+			GPX_ROUTES.splice(idx, 1);
 			renderFiles();
 		},
 		rearrangeFiles(from, to){
-			var file = GPX_FILES.splice(from, 1)[0];
-			GPX_FILES.splice(to, 0, file);
+			var file = GPX_ROUTES.splice(from, 1)[0];
+			GPX_ROUTES.splice(to, 0, file);
+			renderFiles();
+		},
+		setFiles(files){
+			while(GPX_ROUTES.length) GPX_ROUTES.pop();
+			GPX_ROUTES.push(...files);
 			renderFiles();
 		}
 	});
@@ -23,18 +28,20 @@
 	initControlToggle();
 	
 	initPlayBtn({
-		getFiles(){
-			return GPX_FILES;
-		},
+		getPaths(){ return GPX_ROUTES; },
 		speed_multiplier: SPEED_MULTIPLIER,
 		map: MAIN_MAP
 	});
 	
 	renderFiles();
 	
-	initFileControls(files=>{
-		GPX_FILES.push(...files);
-		renderFiles();
+	initFileControls({
+		async onAdd(files){
+			var filesText = await Promise.all(files.map(FI.get_file_text));
+			var routes = await parseFiles(filesText);
+			GPX_ROUTES.push(...routes);
+			renderFiles();
+		}
 	});
 	
 })();

@@ -1,5 +1,9 @@
 
-
+/**
+ * Creates and draws a map in the provided div
+ * @param {HTMLElement} map_div
+ * @returns {Promise} Resolves when the map is ready to use
+ */
 function createMap(map_div) {
 	return new Promise(done => {
 		require([
@@ -21,6 +25,10 @@ function createMap(map_div) {
 	});
 }
 
+/**
+ * Slide the controls div out of the way
+ * @returns {Promise} Resolves when the thing is closed
+ */
 function closeControls(){
 	return new Promise(done=>{
 		const PIXELS_PER_FRAME = 7;
@@ -53,6 +61,10 @@ function closeControls(){
 	});
 }
 
+/**
+ * Opens the controls panel
+ * @returns {Promise} Resolves when the animation is complete
+ */
 function openControls(){
 	return new Promise(done=>{
 		const PIXELS_PER_FRAME = 7;
@@ -86,6 +98,11 @@ function openControls(){
 	});
 }
 
+/**
+ * Adds an event listener to the header of the contols panel that 
+ * allows user to open and close it via click
+ * @returns {undefined}
+ */
 function initControlToggle(){
 	const HEADER = document.querySelector('#controls_div .header');
 	HEADER.addEventListener('click', function(e){
@@ -98,7 +115,13 @@ function initControlToggle(){
 	});
 }
 
-function initFileControls(onAdd){
+/**
+ * Init the drag and drop/ file import area
+ * @param {Function} onAdd - A function that takes a set of files 
+ * and adds them to the app's GPX_ROUTES 
+ * @returns {undefined}
+ */
+function initFileControls({onAdd}){
 	const FILE_DROP_DIV = document.querySelector('#file_drop');
 	FI.addMimeType('gpx', 'application/gpx+xml');
 	const fi = new FI({
@@ -115,18 +138,26 @@ function initFileControls(onAdd){
 	});
 }
 
-function renderFilesList({files, removeFile, rearrangeFiles}){
+/**
+ * Renders the list of files in the control div
+ * @param {Array} files An array of file/path objects
+ * @param {Function} removeFile - A function that removes a file from GPX_ROUTES
+ * @param {Function} rearrangeFiles - A function that rearranges a file in GPX_ROUTES
+ * @param {Function} setFiles - A function that sets GPX_ROUTES
+ * @returns {undefined}
+ */
+function renderFilesList({files, removeFile, rearrangeFiles, setFiles}){
 	const FILE_LIST_DIV = document.querySelector("#files_list");
 	
 	var buffer = [];
 	if(!files.length){
-		buffer.push(`<div class='file-item no-files'>No files to show.</div>`);
+		buffer.push(`<div class='file-item no-files'>No files to show.<br><a href='#' id='sample_files_button'>Load Sample Files?</a></div>`);
 	}else{
 		for(var i=0; i<files.length; i++){
 			buffer.push(`<div class='file-item file-file' data-file-index='${i}'>
 				<a href='#' data-file-index='${i}' class='remove-file'><i class="fa-solid fa-circle-minus"></i></a> 
 				<span class='move-file'><i class="fa-solid fa-arrows-up-down"></i></span>
-				<b>${i+1}</b> - <i class="fa-solid fa-file-code"></i> ${files[i].name}</div>`);
+				<b>${i+1}</b> - <i class="fa-solid fa-file-code"></i> ${files[i].title}</div>`);
 		}
 	}
 	FILE_LIST_DIV.innerHTML = buffer.join('');
@@ -148,18 +179,58 @@ function renderFilesList({files, removeFile, rearrangeFiles}){
 			if(to !== from) rearrangeFiles(from, to);
 		});
 	});
+	var load_files_btn = document.getElementById('sample_files_button');
+	if(load_files_btn){
+		load_files_btn.addEventListener('click', async function(e){
+			e.preventDefault();
+			var samplefiles = await loadSampleFiles();
+			setFiles(samplefiles);
+		});
+	}
 }
 
+/**
+ * Get the sample data from the server
+ * @returns {Promise}
+ */
+function loadSampleFiles(){
+	return new Promise(async done=>{
+		var sample_files = [
+			'First_10_miles_of_the_Pinellas_Trail.gpx',
+			'Miles_10_thru_27_5_of_the_Pinellas_Trail.gpx',
+			'Miles_27_5_thru_41_25_of_the_Pinellas_Trail.gpx',
+			'Southernmost_5_miles_of_the_Pinellas_Trail_North_Bay_Trail.gpx'
+		];
+		var filesText = await Promise.all(sample_files.map(fn=>fetch(`./gpx_sample_files/${fn}`).then(r=>r.text())));
+		var paths = await parseFiles(filesText);
+		done(paths);
+	});
+}
+
+/**
+ * Play the animation
+ * @param {Array} paths GPX_ROUTES
+ * @param {Map} map
+ * @param {Number} speed_multiplier
+ * @returns {Promise} REsolves when animation is complete
+ */
 function playAnimation({paths, map, speed_multiplier}){
 	return new Promise(async done => {
 		for(var i=0; i<paths.length; i++){
-			await renderPath({index: i, path: paths[i], map, speed_multiplier});
+			await renderPath({path: paths[i], map, speed_multiplier});
 		}
 		done();
 	});
 }
 
-function renderPath({index, path, map, speed_multiplier}){
+/**
+ * Render a single path
+ * @param {Object} path a path from GPX_ROUTES
+ * @param {type} map the Map instance to draw on
+ * @param {Number} speed_multiplier 
+ * @returns {Promise} Resolves when animation complete
+ */
+function renderPath({path, map, speed_multiplier}){
 	return new Promise(done => {
 		require([
 			"esri/map",
@@ -188,32 +259,45 @@ function renderPath({index, path, map, speed_multiplier}){
 		], function (Map, Graphic, SimpleFillSymbol, SimpleMarkerSymbol, SimpleLineSymbol, TextSymbol, Font, Circle, Polygon, Point, SpatialReference, webMercatorUtils, GraphicsLayer, script, array, all, Deferred, dom, on, JSON, PictureMarkerSymbol, CartographicLineSymbol, Polyline, Color, domConstruct, Chart) {
 			(async function(e){
 				
-				var segmenter = getTimelapseSegmenter(path, speed_multiplier);
+				var segmenter = getTimelapseSegmenter(path.path, speed_multiplier);
 				segmenter.startTime();
 				
-				var gl = new GraphicsLayer({id: "runningtrack"+index});
-				map.addLayer(gl);
-
-				var lineSymbol = new CartographicLineSymbol(
-					CartographicLineSymbol.STYLE_SOLID, 
-					new Color([255,0,0]), 
-					3, 
-					CartographicLineSymbol.CAP_ROUND, 
-					CartographicLineSymbol.JOIN_ROUND, 
-					5
-				);
-
-				var lineGeometry = new Polyline(new SpatialReference({wkid:4326}));
+				var lineGeometry;
+				var gl = map.getLayer("runningtrack");
 				
-				var segment = await segmenter.getNextSegment();
-				lineGeometry.addPath(segment.map(point=>[point.lng, point.lat]));
-
-				var lineGraphic = new Graphic(lineGeometry, lineSymbol);
-				gl.add(lineGraphic)
-
-				map.setExtent(lineGeometry.getExtent());
+				if(!gl){
 					
+					// The first time this is run the graphic layer won't exist, we'll need to create it
 					
+					gl = new GraphicsLayer({id: "runningtrack"});
+					map.addLayer(gl);
+					
+					var lineSymbol = new CartographicLineSymbol(
+						CartographicLineSymbol.STYLE_SOLID, 
+						new Color([255,0,0]), 
+						3, 
+						CartographicLineSymbol.CAP_ROUND, 
+						CartographicLineSymbol.JOIN_ROUND, 
+						5
+					);
+
+					lineGeometry = new Polyline(new SpatialReference({wkid:4326}));
+					
+					var segment = await segmenter.getNextSegment();
+					lineGeometry.addPath(segment.map(point=>[point.lng, point.lat]));
+				
+					var lineGraphic = new Graphic(lineGeometry, lineSymbol);
+					gl.add(lineGraphic);
+					
+					map.setExtent(lineGeometry.getExtent());
+					
+				}else{
+					lineGeometry = gl.graphics[0].geometry;
+					
+					var segment = await segmenter.getNextSegment();
+					lineGeometry.addPath(segment.map(point=>[point.lng, point.lat]));
+				}
+				
 				while(true){
 					
 					segment = await segmenter.getNextSegment();
@@ -247,20 +331,30 @@ function renderPath({index, path, map, speed_multiplier}){
 	});
 }
 
-function initPlayBtn({getFiles, map, speed_multiplier}){
+/**
+ * Initiate the play button
+ * @param {type} getPaths
+ * @param {type} map
+ * @param {type} speed_multiplier
+ * @returns {undefined}
+ */
+function initPlayBtn({getPaths, map, speed_multiplier}){
 	const PLAY_BTN = document.querySelector('#play-btn');
 	PLAY_BTN.addEventListener('click', async function(e){
 		e.preventDefault();
 		await closeControls();
-		var files = getFiles();
-		var paths = await parseFiles(files);
+		var paths = getPaths();
 		playAnimation({paths, map, speed_multiplier});
 	});
 }
 
-async function parseFiles(files){
+/**
+ * Parse the File objects and get route objects
+ * @param {Array} files GPX File text
+ * @returns {Promise} Resolves with the parsed data
+ */
+async function parseFiles(filesText){
 	var paths = [];
-	let filesText = await Promise.all(files.map(FI.get_file_text));
 	for(var i=0; i<filesText.length; i++){
 		let trackpoints = [];
 		let gpx = (new DOMParser()).parseFromString(filesText[i], 'text/xml');
@@ -272,13 +366,22 @@ async function parseFiles(files){
 			let time = new Date(trkpts[ii].getElementsByTagName("time")[0].textContent);
 			trackpoints.push({lat, lng, ele, time});
 		}
-		paths.push(trackpoints);
+		paths.push({
+			title: gpx.getElementsByTagName("name")[0].textContent,
+			path: trackpoints
+		});
 	}
 	return paths;
 }
 
+/**
+ * Returns an object to iterate through the route in real, scaled time
+ * @param {Array} points
+ * @param {Number} speed_multiplier
+ * @returns {Segmenter}
+ */
 function getTimelapseSegmenter(points, speed_multiplier){
-
+	
 	var next_starting_index = 0;
 	var current_real_time = null;
 	var current_playback_time = null;
