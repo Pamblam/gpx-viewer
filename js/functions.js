@@ -199,7 +199,9 @@ function loadSampleFiles(){
 			'First_10_miles_of_the_Pinellas_Trail.gpx',
 			'Miles_10_thru_27_5_of_the_Pinellas_Trail.gpx',
 			'Miles_27_5_thru_41_25_of_the_Pinellas_Trail.gpx',
-			'Southernmost_5_miles_of_the_Pinellas_Trail_North_Bay_Trail.gpx'
+			'Southernmost_5_miles_of_the_Pinellas_Trail_North_Bay_Trail.gpx',
+			'Southern_10_miles_of_the_Pinellas_Trail_South_Gap.gpx',
+			'Last_piece_of_the_Pinellas_Trail_South_Gap.gpx'
 		];
 		var filesText = await Promise.all(sample_files.map(fn=>fetch(`./gpx_sample_files/${fn}`).then(r=>r.text())));
 		var paths = await parseFiles(filesText);
