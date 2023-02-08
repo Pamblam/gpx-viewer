@@ -4,6 +4,7 @@
 	
 	const MAP_DIV = document.querySelector("#main_map");
 	const MAIN_MAP = await createMap(MAP_DIV);
+	const DISPLAY_DIV = document.querySelector('#display_area');
 	
 	const GPX_ROUTES = [];
 	
@@ -30,7 +31,8 @@
 	initPlayBtn({
 		getPaths(){ return GPX_ROUTES; },
 		speed_multiplier: SPEED_MULTIPLIER,
-		map: MAIN_MAP
+		map: MAIN_MAP,
+		display_div: DISPLAY_DIV
 	});
 	
 	renderFiles();
